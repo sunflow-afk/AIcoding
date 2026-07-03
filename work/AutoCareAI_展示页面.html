@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoCare AI — 尼日利亚二手车维护助手 | 前期分析</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ========== RESET & BASE ========== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e14; --surface:#12161e; --card:#181c26; --border:#252b36;
+  --text:#c8ccd4; --head:#e8eaef; --muted:#6b7385;
+  --green:#2ecc71; --green-dim:#1a7a42; --amber:#f0a830; --red:#e74c3c;
+  --blue:#3498db; --purple:#8e44ad; --teal:#1abc9c;
+  --accent:var(--green); --accent-glow:rgba(46,204,113,0.25);
+  --radius:12px; --radius-sm:8px; --transition:0.25s cubic-bezier(0.4,0,0.2,1);
+}
+html{scroll-behavior:smooth}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.65;overflow-x:hidden}
+a{color:var(--green);text-decoration:none}
+h1,h2,h3,h4{color:var(--head);line-height:1.25}
+h1{font-size:clamp(2.2rem,5vw,3.6rem);font-weight:800;letter-spacing:-0.02em}
+h2{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:700}
+h3{font-size:1.2rem;font-weight:600}
+img{max-width:100%}
+
+/* ========== LAYOUT ========== */
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+.section{padding:80px 0}
+.section-label{display:inline-block;font-size:0.8rem;font-weight:700;letter-spacing:0.12em;color:var(--green);text-transform:uppercase;margin-bottom:8px}
+.section-title{margin-bottom:12px}
+.section-subtitle{color:var(--muted);font-size:1.05rem;max-width:640px;margin-bottom:40px}
+
+/* ========== NAV ========== */
+nav{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(10,14,20,0.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);transition:var(--transition)}
+nav .nav-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1200px;margin:0 auto}
+nav .logo{font-weight:800;font-size:1.15rem;color:var(--green);white-space:nowrap}
+nav .logo span{color:var(--head)}
+nav a.nav-link{color:var(--muted);font-size:0.82rem;font-weight:600;margin-left:20px;transition:var(--transition);text-transform:uppercase;letter-spacing:0.04em}
+nav a.nav-link:hover{color:var(--head)}
+
+/* ========== HERO ========== */
+.hero{min-height:100vh;display:flex;align-items:center;position:relative;overflow:hidden;padding:100px 0 60px}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 30%,rgba(46,204,113,0.08),transparent 70%),radial-gradient(ellipse 40% 40% at 80% 70%,rgba(52,152,219,0.06),transparent 70%)}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;position:relative;z-index:1}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:6px 16px;font-size:0.82rem;font-weight:600;margin-bottom:24px}
+.hero-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse-dot 2s infinite}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 0 0 var(--accent-glow)}50%{box-shadow:0 0 0 10px transparent}}
+.hero h1{margin-bottom:16px}
+.hero h1 em{font-style:normal;color:var(--green);position:relative}
+.hero h1 em::after{content:'';position:absolute;bottom:2px;left:0;right:0;height:4px;background:var(--green);opacity:0.25;border-radius:2px}
+.hero-desc{font-size:1.15rem;color:var(--muted);margin-bottom:32px;max-width:480px;line-height:1.7}
+.hero-stats{display:flex;gap:32px;flex-wrap:wrap}
+.hero-stat{text-align:center}
+.hero-stat .num{font-size:2rem;font-weight:800;color:var(--head);line-height:1.1}
+.hero-stat .lbl{font-size:0.78rem;color:var(--muted);margin-top:4px}
+.hero-visual{position:relative}
+.hero-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;position:relative;overflow:hidden}
+.hero-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--green),var(--teal))}
+.hero-card .icon-big{font-size:3rem;margin-bottom:12px}
+.hero-card h3{font-size:1.1rem;margin-bottom:8px}
+.hero-card p{font-size:0.88rem;color:var(--muted);line-height:1.6}
+.hero-card-float{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 18px;font-size:0.82rem;box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+.hero-card-float.tl{top:-20px;left:-30px}
+.hero-card-float.br{bottom:-20px;right:-30px}
+
+/* ========== CARDS GRID ========== */
+.cards-3{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.cards-2{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.cards-4{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+@media(max-width:900px){.cards-3,.cards-2,.cards-4{grid-template-columns:1fr}.hero-grid{grid-template-columns:1fr}}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:var(--transition);position:relative;overflow:hidden}
+.card:hover{border-color:var(--green);transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+.card .card-icon{font-size:2rem;margin-bottom:14px}
+.card h3{font-size:1.05rem;margin-bottom:10px}
+.card p{font-size:0.9rem;color:var(--muted);line-height:1.6}
+.card .num-big{font-size:2.8rem;font-weight:800;color:var(--green);line-height:1;margin-bottom:6px}
+.card .num-sub{font-size:0.85rem;color:var(--muted)}
+
+/* ========== CHARTS AREA ========== */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
+@media(max-width:900px){.chart-row{grid-template-columns:1fr}}
+.chart-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.chart-box h4{font-size:0.95rem;margin-bottom:16px;color:var(--head)}
+.chart-wrap{position:relative;height:280px}
+.chart-wrap canvas{width:100%!important}
+
+/* ========== PAIN TABLE ========== */
+.pain-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:900px){.pain-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.pain-grid{grid-template-columns:1fr}}
+.pain-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;text-align:center;transition:var(--transition)}
+.pain-card:hover{border-color:var(--red);transform:translateY(-2px)}
+.pain-card .stars{color:var(--amber);font-size:0.9rem;margin-bottom:8px;letter-spacing:1px}
+.pain-card h4{font-size:0.95rem;margin-bottom:6px}
+.pain-card p{font-size:0.8rem;color:var(--muted);line-height:1.5}
+
+/* ========== TABS ========== */
+.tab-nav{display:flex;gap:4px;margin-bottom:24px;background:var(--surface);border-radius:var(--radius);padding:4px;overflow-x:auto}
+.tab-btn{flex:1;min-width:140px;padding:12px 20px;border:none;background:transparent;color:var(--muted);cursor:pointer;border-radius:var(--radius-sm);font-size:0.9rem;font-weight:600;transition:var(--transition);white-space:nowrap;font-family:inherit}
+.tab-btn.active{background:var(--card);color:var(--head);box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.tab-btn:hover:not(.active){color:var(--text)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* ========== PERSONA ========== */
+.persona-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:var(--transition)}
+.persona-card:hover{border-color:var(--green)}
+.persona-header{background:var(--surface);padding:28px;text-align:center;border-bottom:1px solid var(--border);position:relative}
+.persona-avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--teal));margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-size:2.4rem;color:#fff}
+.persona-header h3{font-size:1.3rem;margin-bottom:4px}
+.persona-header .role{font-size:0.85rem;color:var(--green);font-weight:600}
+.persona-quote{font-style:italic;color:var(--muted);font-size:0.92rem;margin-top:12px;padding:0 20px;line-height:1.5}
+.persona-body{padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.persona-body{grid-template-columns:1fr}}
+.persona-field{margin-bottom:12px}
+.persona-field .f-label{font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px}
+.persona-field .f-value{font-size:0.9rem;color:var(--head)}
+.persona-insight{background:rgba(46,204,113,0.08);border-left:3px solid var(--green);padding:16px 20px;margin:0 24px 24px;border-radius:0 var(--radius-sm) var(--radius-sm) 0;font-size:0.9rem;color:var(--green);line-height:1.5;font-style:italic}
+
+/* ========== JOURNEY MAP ========== */
+.journey{position:relative;overflow-x:auto;padding-bottom:20px}
+.journey-track{display:flex;gap:16px;min-width:900px;padding:20px 0}
+.journey-stage{flex:1;min-width:160px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;position:relative;transition:var(--transition)}
+.journey-stage:hover{border-color:var(--green);transform:translateY(-4px)}
+.journey-stage .stage-num{font-size:0.7rem;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px}
+.journey-stage h4{font-size:0.9rem;margin-bottom:8px}
+.journey-stage p{font-size:0.78rem;color:var(--muted);line-height:1.5}
+.journey-stage .emoji-bar{font-size:1rem;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.journey-stage .pain-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.journey-stage .pain-dot.red{background:var(--red)}
+.journey-stage .pain-dot.amber{background:var(--amber)}
+.journey-stage .pain-dot.green{background:var(--green)}
+.journey-connector{display:flex;align-items:center;justify-content:center;min-width:24px;color:var(--green);font-size:1.2rem}
+
+/* ========== HMW ACCORDION ========== */
+.accordion{margin-bottom:12px}
+.accordion-btn{width:100%;text-align:left;padding:18px 22px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--head);font-size:1rem;font-weight:600;cursor:pointer;transition:var(--transition);display:flex;justify-content:space-between;align-items:center;gap:16px;font-family:inherit}
+.accordion-btn:hover{border-color:var(--green)}
+.accordion-btn .arrow{transition:var(--transition);font-size:1.2rem;color:var(--green)}
+.accordion-btn.open .arrow{transform:rotate(180deg)}
+.accordion-body{max-height:0;overflow:hidden;transition:max-height 0.4s ease;background:var(--surface);border-radius:0 0 var(--radius) var(--radius);margin-top:-4px}
+.accordion-body.open{max-height:500px}
+.accordion-body .inner{padding:20px 22px;font-size:0.9rem;color:var(--muted);line-height:1.7}
+
+/* ========== COMPETITIVE MATRIX ========== */
+.comp-table{width:100%;border-collapse:separate;border-spacing:0;font-size:0.88rem}
+.comp-table th{text-align:left;padding:14px 16px;background:var(--surface);color:var(--head);font-weight:700;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid var(--border)}
+.comp-table th:first-child{border-radius:var(--radius-sm) 0 0 0}
+.comp-table th:last-child{border-radius:0 var(--radius-sm) 0 0}
+.comp-table td{padding:14px 16px;border-bottom:1px solid var(--border);color:var(--text)}
+.comp-table tr:hover td{background:rgba(46,204,113,0.04)}
+.comp-table .check{color:var(--green);font-weight:700}
+.comp-table .cross{color:var(--muted)}
+.comp-table .us{color:var(--head);font-weight:600}
+
+/* ========== FOOTER ========== */
+footer{text-align:center;padding:60px 24px;border-top:1px solid var(--border);color:var(--muted);font-size:0.82rem}
+footer .logo{color:var(--green);font-weight:800;font-size:1.1rem;margin-bottom:8px}
+
+/* ========== ANIMATIONS ========== */
+.fade-up{opacity:0;transform:translateY(30px);transition:opacity 0.7s ease,transform 0.7s ease}
+.fade-up.visible{opacity:1;transform:translateY(0)}
+.delay-1{transition-delay:0.1s}
+.delay-2{transition-delay:0.2s}
+.delay-3{transition-delay:0.3s}
+
+@media(max-width:768px){
+  .hero-stats{gap:16px}
+  .hero-stat .num{font-size:1.4rem}
+  .comp-table{font-size:0.72rem}
+  .comp-table td,.comp-table th{padding:8px 6px}
+}
+</style>
+</head>
+<body>
+
+<!-- ====== NAV ====== -->
+<nav>
+  <div class="nav-inner">
+    <div class="logo">🚗 AutoCare<span>AI</span></div>
+    <div>
+      <a href="#market" class="nav-link">市场</a>
+      <a href="#pain" class="nav-link">痛点</a>
+      <a href="#users" class="nav-link">用户</a>
+      <a href="#persona" class="nav-link">画像</a>
+      <a href="#journey" class="nav-link">旅程</a>
+      <a href="#hmw" class="nav-link">HMW</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ====== HERO ====== -->
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <div class="hero-badge"><span class="dot"></span> 尼日利亚 · 创新大赛 · 2026</div>
+      <h1>让每一辆<em>二手车</em><br>都值得信赖</h1>
+      <p class="hero-desc">AutoCare AI 面向尼日利亚 1,400 万车主，融合 AI 诊断、维修师匹配、车辆档案与保养提醒，从问题识别到长期维护，构建二手车信任基础设施。</p>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="num">1,400<span style="font-size:1.2rem">万</span></div><div class="lbl">汽车保有量</div></div>
+        <div class="hero-stat"><div class="num">75–95<span style="font-size:0.9rem">%</span></div><div class="lbl">二手车占比</div></div>
+        <div class="hero-stat"><div class="num">45–65<span style="font-size:0.9rem">%</span></div><div class="lbl">传音手机覆盖</div></div>
+        <div class="hero-stat"><div class="num" style="color:var(--red)">30<span style="font-size:0.9rem">%</span></div><div class="lbl">事故与机械故障相关</div></div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-card">
+        <div class="icon-big">🔧</div>
+        <h3>AutoCare AI 四合一平台</h3>
+        <p>AI 音频诊断 → 技师智能匹配 → 车辆数字档案 → 保养主动提醒<br>依托传音 Palm Store 预装，直达 1.7 亿月活用户</p>
+      </div>
+      <div class="hero-card-float tl">📊 市场空白：尚无竞品整合诊断+维修+档案</div>
+      <div class="hero-card-float br">📱 预装渠道：传音 Tecno/Infinix/Itel</div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== WHY NIGERIA ====== -->
+<section class="section" id="market">
+  <div class="container">
+    <div class="section-label">01 · 市场背景</div>
+    <h2 class="section-title">为什么是尼日利亚？</h2>
+    <p class="section-subtitle">非洲最大的二手车市场，2.3 亿人口，1,400 万辆车，维修市场数十年未变——这是一个等待数字化的蓝海。</p>
+
+    <div class="cards-4 fade-up">
+      <div class="card"><div class="num-big">1,400<span style="font-size:1rem">万</span></div><div class="num-sub">全国汽车保有量</div><p>75–95% 为进口二手车（Tokunbo），平均车龄 14 年，仅 2% 人口能负担新车。</p></div>
+      <div class="card"><div class="num-big">1.4<span style="font-size:1rem">万辆</span></div><div class="num-sub">本地年产量</div><p>年需求 72 万辆，本地产能利用率不足 5%，二手车依赖在未来十年不可逆转。</p></div>
+      <div class="card"><div class="num-big">71<span style="font-size:1rem">%+</span></div><div class="num-sub">非正规路边技师</div><p>无认证、无标准、无记录。60%+ 配件不合格，报价可差 10 倍。FRSC 称 30% 致命事故与机械故障相关。</p></div>
+      <div class="card"><div class="num-big">65<span style="font-size:1rem">%</span></div><div class="num-sub">传音手机份额</div><p>Palm Store 月活 1.7 亿，PalmPay 3,500 万用户，Carlcare 1,200+ 服务中心——天然渠道壁垒。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== CHARTS ====== -->
+<section class="section" style="padding-top:0">
+  <div class="container">
+    <div class="chart-row fade-up">
+      <div class="chart-box"><h4>📈 尼日利亚汽车保有量与车龄变迁（2010–2024）</h4><div class="chart-wrap"><canvas id="chartParc"></canvas></div></div>
+      <div class="chart-box"><h4>⛽ 燃油价格飙升：车主"修了再修"的经济驱动力（2015–2024）</h4><div class="chart-wrap"><canvas id="chartFuel"></canvas></div></div>
+    </div>
+    <div class="chart-row fade-up">
+      <div class="chart-box"><h4>🚢 二手车进口：量缩价涨——单位进口成本五年膨胀 5 倍+（2017–2025）</h4><div class="chart-wrap"><canvas id="chartImport"></canvas></div></div>
+      <div class="chart-box"><h4>📶 尼日利亚网络连接结构变迁（2017–2025）</h4><div class="chart-wrap"><canvas id="chartNetwork"></canvas></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== PAIN POINTS ====== -->
+<section class="section" id="pain" style="padding-top:0">
+  <div class="container">
+    <div class="section-label">02 · 用户痛点</div>
+    <h2 class="section-title">八大核心痛点，一个比一个痛</h2>
+    <p class="section-subtitle">调研覆盖 Lagos 与 Abuja 车主，从"车辆问题难判断"到"维修记录完全缺失"，这是系统性的信任真空。</p>
+    <div class="pain-grid fade-up">
+      <div class="pain-card"><div class="stars">★★★★★</div><h4>🔍 车辆问题难判断</h4><p>技师用"试错法"诊断，水泵故障 ₦45k 被报"发动机大修"₦710k。高频：每月 1–3 次</p></div>
+      <div class="pain-card"><div class="stars">★★★★★</div><h4>👨‍🔧 维修师难选择</h4><p>催化器价值 ₦100 万被偷换成 ₦2.5 万假货。全靠熟人推荐，但熟人也不一定懂</p></div>
+      <div class="pain-card"><div class="stars">★★★★★</div><h4>💰 报价不透明</h4><p>同一故障报价差 10 倍，₦600 垫片报 ₦22,000。技师与配件商勾结，无书面报价单</p></div>
+      <div class="pain-card"><div class="stars">★★★★☆</div><h4>📋 维修记录缺失</h4><p>修了什么、换了什么——全无记录。二手车交易时买家完全不知道真实车况</p></div>
+      <div class="pain-card"><div class="stars">★★★★☆</div><h4>📅 保养提醒不足</h4><p>多数车主"开到坏了才修"，小问题拖成大故障。技师不会提醒——修大的更赚钱</p></div>
+      <div class="pain-card"><div class="stars">★★★★★</div><h4>🔧 假配件泛滥</h4><p>60%+ 配件不合格。翻新件冒充新件，过期轮胎重新喷漆。30% 致命事故源于机械故障</p></div>
+      <div class="pain-card"><div class="stars">★★★☆☆</div><h4>📶 弱网/低端设备</h4><p>2G 仍占 40%+，1GB=₦431（占月收入 2.7–4.2%）。多数 App 无离线能力，安装包太大</p></div>
+      <div class="pain-card"><div class="stars">★★★★☆</div><h4>💸 低付费意愿</h4><p>月最低工资 ₦70,000，愿花 ₦50k 修车但不愿花 ₦500 买 App。对"软件服务"付费意愿极低</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== TARGET USERS ====== -->
+<section class="section" id="users" style="padding-top:0">
+  <div class="container">
+    <div class="section-label">03 · 目标用户</div>
+    <h2 class="section-title">三类用户，一个共性：被维修市场"绑架"</h2>
+    <p class="section-subtitle">从生存驱动的网约车司机到信息弱势的普通车主，再到没时间管车的小商户——每个人都在"被宰"的恐惧中修车。</p>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('tab-driver',this)">🚖 网约车/出租车司机</button>
+      <button class="tab-btn" onclick="switchTab('tab-owner',this)">🚗 普通二手车车主</button>
+      <button class="tab-btn" onclick="switchTab('tab-business',this)">🚛 小商户车主</button>
+    </div>
+
+    <div id="tab-driver" class="tab-panel active fade-up">
+      <div class="cards-2">
+        <div class="card"><h3>📊 基本画像</h3><p>Lagos ~3–5 万活跃司机，全国 ~15–30 万。2014 年 Uber 入市以来从"好职业"变为"勉强维生"。Bolt 超 60% 市场份额，inDrive 以 10% 佣金吸引司机转移。</p></div>
+        <div class="card"><h3>💔 核心痛点</h3><p><strong>停工 = 零收入。</strong>日均行驶 150–300km，月维修支出 ₦50k–150k+。油价从 ₦87（2015）涨至 ₦900+（2024），利润被极度压缩。最怕"小问题误判"或"大问题没发现导致抛锚"。</p></div>
+        <div class="card"><h3>🎯 关键指标</h3><p>付费意愿 ★★★★☆ 中高<br>技术接受度 ★★★★☆<br>传音依赖 高<br>月均油费 ₦200k–400k<br>平台抽成 25–35%</p></div>
+        <div class="card"><h3>📡 触达方式</h3><p>AUATON 工会（司机联合工会）· Uber/Bolt 司机 WhatsApp 群 · 加油站 · 平台内置通知</p></div>
+      </div>
+    </div>
+    <div id="tab-owner" class="tab-panel fade-up">
+      <div class="cards-2">
+        <div class="card"><h3>📊 基本画像</h3><p>全国约 1,000–1,300 万二手车车主。Tokunbo 文化根深蒂固，丰田/本田/日产为主流。日均行驶 30–80km，月均维修 ₦10k–50k。</p></div>
+        <div class="card"><h3>💔 核心痛点</h3><p><strong>信息不对称。</strong>对汽车知识一知半解，最容易被欺诈。技师说什么就是什么，无法判断真假。"怀疑被宰但没证据"是常态。</p></div>
+        <div class="card"><h3>🎯 关键指标</h3><p>付费意愿 ★★☆☆☆ 低<br>技术接受度 ★★★☆☆<br>传音依赖 极高（45–65% 覆盖）<br>触达：Palm Store、Facebook、亲友推荐</p></div>
+        <div class="card"><h3>📡 触达方式</h3><p>Palm Store 预装 · Facebook 社群 · Google 搜索 · 亲友推荐 · 线下配件市场</p></div>
+      </div>
+    </div>
+    <div id="tab-business" class="tab-panel fade-up">
+      <div class="cards-2">
+        <div class="card"><h3>📊 基本画像</h3><p>全国约 50–100 万。车辆兼顾商用和家用，代表车型为丰田 Sienna/海狮/皮卡。日均行驶 50–150km，月均维修 ₦30k–100k。Lagos "移动超市"趋势推动增长。</p></div>
+        <div class="card"><h3>💔 核心痛点</h3><p><strong>时间成本高。</strong>没有精力管理车辆维护。"修车 = 停工 + 被宰"的双重损失。需要多辆车管理、费用记录用于报税。2025 年 FairMoney/UBA 推出车辆融资方案。</p></div>
+        <div class="card"><h3>🎯 关键指标</h3><p>付费意愿 ★★★☆☆ 中等<br>技术接受度 ★★★☆☆<br>传音依赖 高<br>核心需求：车辆可靠性 + 预算可控 + 多车管理</p></div>
+        <div class="card"><h3>📡 触达方式</h3><p>行业协会 · 批发市场商户 WhatsApp 群 · 商会 · FairMoney/UBA 等金融合作伙伴</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== PERSONA ====== -->
+<section class="section" id="persona" style="padding-top:0">
+  <div class="container">
+    <div class="section-label">04 · 用户画像</div>
+    <h2 class="section-title">两个 Persona，一个真相</h2>
+    <p class="section-subtitle">一个不相信任何技师但别无选择的司机，一个被当作"肥羊"但只需要一个翻译的母亲。</p>
+
+    <div class="cards-2 fade-up">
+      <!-- Emeka -->
+      <div class="persona-card">
+        <div class="persona-header">
+          <div class="persona-avatar">👨🏾‍🦱</div>
+          <h3>Emeka Okonkwo</h3>
+          <div class="role">Lagos · 网约车司机 · 34 岁</div>
+          <div class="persona-quote">"车是我的饭碗。它不跑，我就没饭吃。<br>我不相信任何技师——但我没有选择。"</div>
+        </div>
+        <div class="persona-body">
+          <div class="persona-field"><div class="f-label">家庭</div><div class="f-value">已婚，2 个孩子（6 岁、3 岁），妻子在市场卖布料</div></div>
+          <div class="persona-field"><div class="f-label">月收入</div><div class="f-value">毛收入 ₦300k–400k → <span style="color:var(--red)">净收入仅 ₦100k–180k</span></div></div>
+          <div class="persona-field"><div class="f-label">车辆</div><div class="f-value">2012 款丰田卡罗拉（Tokunbo），日均 200–250km</div></div>
+          <div class="persona-field"><div class="f-label">手机</div><div class="f-value">Tecno Spark 20 · MTN 4G · 3GB/月</div></div>
+          <div class="persona-field"><div class="f-label">核心需求</div><div class="f-value">🚨 故障分诊 👨‍🔧 靠谱技师 💰 费用透明 📊 收支管理</div></div>
+          <div class="persona-field"><div class="f-label">最大挑战</div><div class="f-value">技师说"发动机要大修"要价 ₦500k——无法判断真假；Lagos 几千个路边技师，换人不熟悉等于赌博</div></div>
+          <div class="persona-field"><div class="f-label">目标</div><div class="f-value">月净收入 ₦200k+；换 2016 款卡罗拉；孩子上好学校</div></div>
+        </div>
+        <div class="persona-insight">💡 <strong>用户洞察：</strong>Emeka 不相信任何技师——但他没有选择。他需要一个他信任的"第三方"，告诉他车到底怎么了、该花多少钱、该找谁修。<strong>他不是需要一个工具，他是需要一个站在他那边的"汽车顾问"。</strong></div>
+      </div>
+
+      <!-- Mama Blessing -->
+      <div class="persona-card">
+        <div class="persona-header">
+          <div class="persona-avatar">👩🏾‍🦱</div>
+          <h3>Mama Blessing Chukwu</h3>
+          <div class="role">Abuja · 小商户车主 · 42 岁</div>
+          <div class="persona-quote">"我的车装着我的生意，也装着我的孩子。<br>技师说什么就是什么——我只需要一个不会骗我的人。"</div>
+        </div>
+        <div class="persona-body">
+          <div class="persona-field"><div class="f-label">家庭</div><div class="f-value">寡妇，4 个孩子（17 岁到 8 岁）</div></div>
+          <div class="persona-field"><div class="f-label">月收入</div><div class="f-value">小生意 ₦200k–350k（批发塑料制品到 Wuse 市场）</div></div>
+          <div class="persona-field"><div class="f-label">车辆</div><div class="f-value">2009 款丰田 Sienna（7 座 MPV），200 万+ km，拉货+接送孩子+长途探亲</div></div>
+          <div class="persona-field"><div class="f-label">手机</div><div class="f-value">Infinix Hot 40 · Airtel 网络 · 2GB 可用空间</div></div>
+          <div class="persona-field"><div class="f-label">核心需求</div><div class="f-value">🚨 安全预警 💰 费用管控 📅 保养提醒 🛡️ 不被欺负</div></div>
+          <div class="persona-field"><div class="f-label">最大挑战</div><div class="f-value">女性+不懂车=技师眼中的"肥羊"，报价系统性偏高；完全无法质疑技师的判断</div></div>
+          <div class="persona-field"><div class="f-label">目标</div><div class="f-value">生意稳定增长，开第二家摊位；供大儿子上大学</div></div>
+        </div>
+        <div class="persona-insight">💡 <strong>用户洞察：</strong>Mama Blessing 不需要成为汽车专家，她只需要一个"不会骗她的翻译"——把引擎的异响翻译成"该修水泵了，正常价 ₦35,000–55,000"，让她在面对技师时有底气说出"不对，我查过，应该是这个价"。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== JOURNEY MAP ====== -->
+<section class="section" id="journey" style="padding-top:0">
+  <div class="container">
+    <div class="section-label">05 · 用户旅程地图</div>
+    <h2 class="section-title">Emeka 的一天：从接单到维修到回头</h2>
+    <p class="section-subtitle">基于主画像 Emeka Okonkwo（Lagos 网约车司机）的 9 阶段全旅程，追踪情绪变化与设计机会。</p>
+
+    <div class="journey fade-up">
+      <div class="journey-track">
+        <div class="journey-stage">
+          <div class="stage-num">❶ 日常接单</div>
+          <h4>6:00 出门接单</h4>
+          <p>Bolt + Uber 双平台。早高峰 3 单，Ikeja→VI。油费 ₦55k/2-3天，平台抽 25%，agbero levy ₦1,500</p>
+          <div class="emoji-bar">😊→😤</div>
+          <div><span class="pain-dot red"></span><span class="pain-dot red"></span><span class="pain-dot amber"></span> 油费+抽成+levy</div>
+        </div>
+        <div class="journey-connector">→</div>
+        <div class="journey-stage">
+          <div class="stage-num">❷ 发现异响</div>
+          <h4>发动机舱异响</h4>
+          <p>"哒哒哒"声。靠边看——完全不懂。"小问题还是大问题？还能不能接单？"</p>
+          <div class="emoji-bar">😰😣</div>
+          <div><span class="pain-dot red"></span> 无客观判断方式</div>
+        </div>
+        <div class="journey-connector">→</div>
+        <div class="journey-stage">
+          <div class="stage-num">❸ 犹豫判断</div>
+          <h4>试着用 App</h4>
+          <p>想起朋友推荐的 AutoCare AI。"准不准？费不费流量？"没有别的办法——试试</p>
+          <div class="emoji-bar">😟→🤔</div>
+          <div><span class="pain-dot amber"></span> 担心不准+费流量</div>
+        </div>
+        <div class="journey-connector">→</div>
+        <div class="journey-stage" style="border-color:var(--green)">
+          <div class="stage-num" style="color:var(--green)">❹ AI 诊断 ⚡</div>
+          <h4>录制 30 秒音频</h4>
+          <p>靠近发动机→录音→拍照→分析。2 分钟，3MB 流量。不用打字</p>
+          <div class="emoji-bar">🤔→😌</div>
+          <div><span class="pain-dot green"></span> 操作简单，零门槛</div>
+        </div>
+        <div class="journey-connector">→</div>
+        <div class="journey-stage" style="border-color:var(--green)">
+          <div class="stage-num" style="color:var(--green)">❺ 得到结果 ✅</div>
+          <h4>85% 概率：水泵轴承磨损</h4>
+          <p>🟡 非紧急，3 天内修 · 💰 预估 ₦35k–55k · 🎧 播放"水泵异响样本"</p>
+          <div class="emoji-bar">😌💪</div>
+          <div><span class="pain-dot green"></span> "还能继续接单！"</div>
+        </div>
+        <div class="journey-connector">→</div>
+        <div class="journey-stage" style="border-color:var(--green)">
+          <div class="stage-num" style="color:var(--green)">❻ 找技师</div>
+          <h4>Chidi Auto · 4.8★</h4>
+          <p>推荐 3 家评分 4.5+ 认证技师。专长 Toyota · 距 2.3km · 623 条评价。预约明早 9:00</p>
+          <div class="emoji-bar">🙂👍</div>
+          <div><span class="pain-dot green"></span> 就近+靠谱+不贵</div>
+        </div>
+        <div class="journey-connector">→</div>
+        <div class="journey-stage">
+          <div class="stage-num">❼ 到店维修</div>
+          <h4>技师确认：水泵问题</h4>
+          <p>报价 ₦48k（在预估范围内）。评价："换的是水泵不是发动机，诚实"。下午取车</p>
+          <div class="emoji-bar">😊🙏</div>
+          <div><span class="pain-dot green"></span> AI预估+技师评价=双重信任</div>
+        </div>
+        <div class="journey-connector">→</div>
+        <div class="journey-stage">
+          <div class="stage-num">❽ 记录费用</div>
+          <h4>总计 ₦53k · 合理</h4>
+          <p>拍照记录维修单（OCR）。工时 ₦15k + 零件 ₦38k。给技师打 5★</p>
+          <div class="emoji-bar">😄📝</div>
+          <div><span class="pain-dot green"></span> 维修记录=车辆数字档案</div>
+        </div>
+        <div class="journey-connector">→</div>
+        <div class="journey-stage" style="border-color:var(--amber)">
+          <div class="stage-num" style="color:var(--amber)">❾ 保养提醒 🔄</div>
+          <h4>3 个月后：该保养了</h4>
+          <p>推送："距上次换机油 4,800km，建议 2 周内保养"。一键预约 Chidi。闭环完成</p>
+          <div class="emoji-bar">😊🔁💡</div>
+          <div><span class="pain-dot green"></span> 从"修车工具"到"养车管家"</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-box fade-up" style="margin-top:24px"><h4>😊 全旅程情绪曲线</h4><div class="chart-wrap" style="height:220px"><canvas id="chartEmotion"></canvas></div></div>
+  </div>
+</section>
+
+<!-- ====== HMW ====== -->
+<section class="section" id="hmw" style="padding-top:0">
+  <div class="container">
+    <div class="section-label">06 · 设计挑战</div>
+    <h2 class="section-title">四个 HMW，定义产品方向</h2>
+    <p class="section-subtitle">基于用户痛点与旅程洞察，提炼出四个核心设计挑战。</p>
+
+    <div class="fade-up">
+      <div class="accordion">
+        <button class="accordion-btn" onclick="toggleAccordion(this)"><span>HMW #1：如何让完全不懂车的用户在弱网环境下快速判断"能不能继续开"？</span><span class="arrow">▼</span></button>
+        <div class="accordion-body"><div class="inner">
+          <p><strong>背景：</strong>车主普遍缺乏汽车知识，2G 仍占 40%+ 连接，1GB=₦431。用户需要的不是技术报告，是一个可信的行动指引。</p>
+          <p style="margin-top:10px"><strong>方向：</strong>🎤 音频诊断优先（15–30 秒录音 + 拍照）→ 🟢🟡🔴 三色行动指引 → 📦 安装包 &lt;15MB → 🔄 弱网异步同步 → 💰 单次诊断 &lt;5MB 流量</p>
+        </div></div>
+      </div>
+      <div class="accordion">
+        <button class="accordion-btn" onclick="toggleAccordion(this)"><span>HMW #2：如何在一个完全非正规的市场中建立"技师可信度"体系？</span><span class="arrow">▼</span></button>
+        <div class="accordion-body"><div class="inner">
+          <p><strong>背景：</strong>95%+ 维修由非正规技师完成，无认证、无标准、无记录。简单的"星级评价"不够。</p>
+          <p style="margin-top:10px"><strong>方向：</strong>📊 多维信任评分（报价准确度+过度维修率+回头率）→ 💡 区域价格透明参考（P25–P75）→ 🏅 阶梯认证 → 👩‍🦰 女性保护机制 → 📸 维修过程留痕</p>
+        </div></div>
+      </div>
+      <div class="accordion">
+        <button class="accordion-btn" onclick="toggleAccordion(this)"><span>HMW #3：如何让月薪 ₦70,000 的用户持续使用并最终为服务付费？</span><span class="arrow">▼</span></button>
+        <div class="accordion-body"><div class="inner">
+          <p><strong>背景：</strong>用户愿花 ₦50k 修车但不愿花 ₦500 买 App。需要"用户觉得值、平台能赚钱、技师愿意配合"的三赢模式。</p>
+          <p style="margin-top:10px"><strong>方向：</strong>🆓 基础免费（诊断+提醒+记录）→ 💎 增值按次付费（优先匹配 ₦300/次，维修质保 5%）→ 🏪 B 端变现（技师获客 CPL + 配件广告 + 保险合作）→ 🤝 PalmPay 小额支付闭环</p>
+        </div></div>
+      </div>
+      <div class="accordion">
+        <button class="accordion-btn" onclick="toggleAccordion(this)"><span>HMW #4：如何从"修车工具"进化为"车辆全生命周期管家"？</span><span class="arrow">▼</span></button>
+        <div class="accordion-body"><div class="inner">
+          <p><strong>背景：</strong>单次维修是低频需求，但保养、保险、年检、买卖是持续发生的。谁掌握车辆完整数据，谁就掌握二手车交易定价权。</p>
+          <p style="margin-top:10px"><strong>方向：</strong>📋 数字车辆档案 → 📄 AutoCare 车辆健康报告（Carfax 模式）→ 🏦 与 FairMoney/UBA 等金融合作风控 → 🏪 Carlcare 1,200+ 线下核验节点 → 🎯 终极愿景：尼日利亚版 "Carfax + 大众点评修车版 + 车主管家"</p>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== COMPETITIVE ====== -->
+<section class="section" style="padding-top:0">
+  <div class="container">
+    <div class="section-label">07 · 竞争格局</div>
+    <h2 class="section-title">没有直接竞品——但市场不会永远空白</h2>
+    <div class="fade-up" style="overflow-x:auto">
+      <table class="comp-table">
+        <thead>
+          <tr><th>类型</th><th>代表产品</th><th>进入时间</th><th>AI 诊断</th><th>技师匹配</th><th>车辆档案</th><th>保养提醒</th><th>弱网优化</th><th>传音预装</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>在线交易</td><td>Jiji Cars, Cars45</td><td>2010s</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td></tr>
+          <tr><td>配件商城</td><td>Jiji, Ladipo 线上</td><td>2010s</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td></tr>
+          <tr><td>技师目录</td><td>Carlots.ng</td><td>2025</td><td class="cross">✕</td><td class="check">✓</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td></tr>
+          <tr><td>通用 AI</td><td>ChatGPT, Gemini</td><td>2022–</td><td>⚠ 泛化</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td></tr>
+          <tr><td>传统线下</td><td>Ladipo/Apo 集群</td><td>1980s–</td><td class="cross">✕</td><td>⚠ 熟人</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td></tr>
+          <tr><td>叫车平台</td><td>Uber/Bolt 内置</td><td>—</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td><td class="cross">✕</td></tr>
+          <tr style="background:rgba(46,204,113,0.06)">
+            <td class="us"><strong>AutoCare AI</strong></td><td class="us">（本项目）</td><td class="us">2026</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card fade-up" style="margin-top:24px;text-align:center;border-color:var(--green)">
+      <p style="font-size:1.05rem;color:var(--head)">🎯 <strong>AutoCare AI 的核心差异化：</strong>AI 诊断 × 技师匹配 × 车辆档案 × 保养提醒，<strong>四位一体</strong>。传音预装 + 弱网优先 = <strong>为尼日利亚而建</strong>，不为硅谷的 5G 用户设计。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ====== FOOTER ====== -->
+<footer>
+  <div class="logo">🚗 AutoCare<span>AI</span></div>
+  <p>尼日利亚二手车维护助手 · 前期分析 v2.0</p>
+  <p style="margin-top:4px;font-size:0.78rem">数据跨度 2010–2025 · 来源：NBS, NPA, NCC, FRSC, NADDC, ITA, Canalys, PwC Nigeria 等</p>
+  <p style="margin-top:12px;font-size:0.75rem">© 2026 AutoCare AI 团队 · 创新大赛</p>
+</footer>
+
+<!-- ====== SCRIPTS ====== -->
+<script>
+// ========== Scroll Animation ==========
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.15 });
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+// ========== Tab Switch ==========
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ========== Accordion ==========
+function toggleAccordion(btn) {
+  btn.classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open');
+}
+
+// ========== Charts ==========
+Chart.defaults.color = '#6b7385';
+Chart.defaults.borderColor = '#252b36';
+Chart.defaults.font.family = "'Segoe UI',system-ui,sans-serif";
+Chart.defaults.font.size = 11;
+
+// Chart 1: Vehicle Parc & Age
+new Chart(document.getElementById('chartParc'), {
+  type: 'bar',
+  data: {
+    labels: ['2010','2015','2018','2020','2022','2024'],
+    datasets: [
+      { label: '保有量(百万辆)', data: [8,11.3,12,11.8,13,14], backgroundColor: 'rgba(46,204,113,0.7)', borderRadius: 6, yAxisID: 'y' },
+      { label: '平均车龄(年)', data: [10,12,13,13,14,14], type: 'line', borderColor: '#e74c3c', backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, pointBackgroundColor: '#e74c3c', yAxisID: 'y1' }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } },
+    scales: {
+      y: { title: { display: true, text: '百万辆' }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: false, min: 0 },
+      y1: { position: 'right', title: { display: true, text: '年' }, grid: { display: false }, min: 8, max: 16 }
+    }
+  }
+});
+
+// Chart 2: Fuel Price
+new Chart(document.getElementById('chartFuel'), {
+  type: 'line',
+  data: {
+    labels: ['2015','2016','2017','2018','2019','2020','2021','2022','2023Q1','2023Q2','2023Q4','2024'],
+    datasets: [
+      { label: '油价 (₦/升)', data: [87,145,146,146,146,167,170,206,195,557,672,950], borderColor: '#f0a830', backgroundColor: 'rgba(240,168,48,0.1)', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#f0a830' }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      annotation: undefined
+    },
+    scales: {
+      y: { title: { display: true, text: '₦/升' }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: false }
+    }
+  }
+});
+
+// Chart 3: Import Value vs Volume
+new Chart(document.getElementById('chartImport'), {
+  type: 'bar',
+  data: {
+    labels: ['2017','2018','2019','2020','2021','2022','2023','2024','2025'],
+    datasets: [
+      { label: '进口额(₦万亿)', data: [0.145,0.269,0.58,0.65,0.52,0.31,1.47,1.26,1.58], backgroundColor: 'rgba(52,152,219,0.7)', borderRadius: 6, yAxisID: 'y' },
+      { label: '进口量(万辆,港口)', data: [22.97,21.93,20,18,23.07,19.46,13.23,10,15], type: 'line', borderColor: '#e74c3c', backgroundColor: 'transparent', tension: 0.3, pointRadius: 3, pointBackgroundColor: '#e74c3c', yAxisID: 'y1' }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } },
+    scales: {
+      y: { title: { display: true, text: '₦万亿' }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true },
+      y1: { position: 'right', title: { display: true, text: '万辆' }, grid: { display: false }, beginAtZero: true }
+    }
+  }
+});
+
+// Chart 4: Network Stacked
+new Chart(document.getElementById('chartNetwork'), {
+  type: 'bar',
+  data: {
+    labels: ['2017','2019','2021','2023','2025'],
+    datasets: [
+      { label: '2G', data: [72,60,50,45,40], backgroundColor: '#6b7385', borderRadius: 0 },
+      { label: '3G', data: [18,25,22,18,7], backgroundColor: '#8e44ad', borderRadius: 0 },
+      { label: '4G', data: [10,15,28,35,50], backgroundColor: '#3498db', borderRadius: 6 },
+      { label: '5G', data: [0,0,0,2,3], backgroundColor: '#2ecc71', borderRadius: 6 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } },
+    scales: {
+      x: { stacked: true },
+      y: { stacked: true, title: { display: true, text: '%' }, grid: { color: 'rgba(255,255,255,0.04)' }, max: 100 }
+    }
+  }
+});
+
+// Chart 5: Emotion Curve
+new Chart(document.getElementById('chartEmotion'), {
+  type: 'line',
+  data: {
+    labels: ['❶日常\n接单','❷发现\n异响','❸犹豫\n判断','❹AI\n诊断','❺查看\n结果','❻寻找\n技师','❼到店\n维修','❽记录\n费用','❾保养\n提醒'],
+    datasets: [
+      { label: '情绪指数', data: [3,1,2,3,4,4,5,5,5], borderColor: '#2ecc71', backgroundColor: 'rgba(46,204,113,0.1)', fill: true, tension: 0.4, pointRadius: 6, pointBackgroundColor: ['#f0a830','#e74c3c','#f0a830','#3498db','#2ecc71','#2ecc71','#2ecc71','#2ecc71','#2ecc71'], pointBorderColor: '#fff', pointBorderWidth: 2 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => { const labels=['😊→😤 赚钱但被层层抽成','😰😣 焦虑无助','😟→🤔 犹豫→决心','🤔→😌 操作简单','😌💪 松一口气','🙂👍 有方向','😊🙏 信任建立','😄📝 满意','😊🔁💡 离不开']; return labels[ctx.dataIndex]; } } }
+    },
+    scales: {
+      y: { title: { display: true, text: '😊 积极 ← → 😰 消极' }, min: 0, max: 6, ticks: { stepSize: 1, callback: v => ['','😰','😟','😐','🙂','😊',''][v] }, grid: { color: 'rgba(255,255,255,0.04)' } }
+    }
+  }
+});
+</script>
+
+</body>
+</html>
